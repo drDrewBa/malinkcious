@@ -7,8 +7,13 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+.pnpm-store/
+
+# Build outputs
 .output
+dist
 stats.html
 stats-*.json
 .wxt
@@ -25,5 +30,30 @@ web-ext.config.ts
 *.sln
 *.sw?
 
+# Environment and secrets
+.env
+.env.*
+*.pem
+client_secret*.json
+client_secret*.txt
+*client_secret*
+oauth2.keys.json
+
 # Large model files
 backend/random_forest_model.pkl
+*.pkl
+*.h5
+*.model
+
+# Cache and temporary files
+.cache/
+*.cache
+.temp/
+.tmp/
+*.tmp
+
+# Testing
+coverage/
+.nyc_output/
+test-results/
+playwright-report/

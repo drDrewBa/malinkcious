@@ -1,8 +1,19 @@
 import { Separator } from "@/components/ui/separator";
+import {
+  EyeOff,
+  Github,
+  Highlighter,
+  MousePointer,
+  Pointer,
+  LogOut,
+  TextCursor,
+} from "lucide-react";
 import { UseExtensionState } from "../hooks/extension-state";
+import { useAuthState } from "../hooks/auth-state";
 import Option from "./components/option";
-import { User } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import PageReport from "./components/page-report";
+import { Button } from "@/components/ui/button";
+import google from "@/assets/google.svg";
 
 function App() {
   const {
@@ -15,6 +26,9 @@ function App() {
     setIsHideLinksActive,
     setIsHoverActive,
   } = UseExtensionState();
+
+  const { isAuthenticated, userProfile, isLoading, signIn, signOut } =
+    useAuthState();
 
   const handleSetIsHighlighterActive = (value: boolean) => {
     setIsHighlighterActive(value);
@@ -36,77 +50,95 @@ function App() {
     chrome.storage.local.set({ isHideLinksActive: value });
   };
 
-  return (  
-    <div className="w-[480px] p-4">
-      <div className="flex items-center justify-between">
-        <h1>
-          ma<span className="text-red-600">l!nk</span>cious
-        </h1>
-        {/* <Tooltip>
-          <TooltipTrigger>
-            <div className="flex items-center justify-center w-8 h-8 rounded-full border-[1px] border-zinc-600 hover:bg-zinc-900">
-              <User width={20} height={20} className="text-zinc-600" strokeWidth={1.5} />
+  const handleGoogleSignIn = async () => {
+    try {
+      await signIn();
+    } catch (error) {
+      console.error("Failed to sign in:", error);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error("Failed to sign out:", error);
+    }
+  };
+
+  return (
+    <div className="w-[480px] bg-zinc-950 text-zinc-50 p-4">
+      <div className="p-4 border border-zinc-700 rounded-md">
+        <div className="flex flex-col gap-4">
+          <Option
+            checked={isHighlighterActive}
+            onCheckedChange={handleSetIsHighlighterActive}
+            option="Highlighter"
+            description="Highlight links to check if they are malicious"
+            type="switch"
+            icon={Highlighter}
+          />
+          <Option
+            checked={isHoverActive}
+            onCheckedChange={handleSetIsHoverActive}
+            option="Hover"
+            description="Hover over links to check if they are malicious"
+            type="switch"
+            icon={Pointer}
+          />
+        </div>
+        <div className="mt-4" />
+        <Separator className="bg-zinc-700 h-px" />
+        <div className="mt-4" />
+        <div className="flex flex-col gap-4 relative">
+          {!isAuthenticated && !isLoading && (
+            <div className="absolute top-0 left-0 w-full h-full z-50 bg-zinc-950/10 backdrop-blur-xl rounded-sm flex flex-col items-center justify-center border border-zinc-700">
+              <p className="text-xs font-light font-lexend tracking-wider text-zinc-500">
+                You need an account to unlock all features.
+              </p>
+              <div className="mt-6" />
+              <Button
+                onClick={handleGoogleSignIn}
+                className="bg-rose-950/20 rounded-sm font-lexend tracking-wider text-xs font-light py-0 px-8 border border-rose-900 text-rose-500 hover:cursor-pointer hover:bg-rose-950/20 w-64"
+              >
+                <img src={google} alt="Google" className="w-4 h-4" />
+                Sign in with Google
+              </Button>
             </div>
-          </TooltipTrigger>
-          <TooltipContent side="left" className="bg-zinc-950 text-zinc-600 rounded-none animate-none">
-            <p>You are not logged in</p>
-          </TooltipContent>
-        </Tooltip> */}
+          )}
+          <Option
+            checked={isUnclickableActive}
+            onCheckedChange={handleSetIsUnclickableActive}
+            option="Unclickable"
+            description="Automatically make malicious links unclickable"
+            type="switch"
+            icon={MousePointer}
+          />
+          <Option
+            checked={isHideLinksActive}
+            onCheckedChange={handleSetIsHideLinksActive}
+            option="Hide Links"
+            description="Remove malicious links from your page"
+            type="switch"
+            icon={EyeOff}
+          />
+          <PageReport />
+        </div>
       </div>
-      <div className="mt-2" />
-      <Separator className="h-0.5 bg-zinc-800" />
-      <div className="mt-6" />
-      <div className="flex flex-col gap-6">
-        <Option
-          checked={isHighlighterActive}
-          onCheckedChange={handleSetIsHighlighterActive}
-          option="Highlighter"
-          description="Highlight a link to check if it is malicious"
-          type="switch"
-        />
-        <Option
-          checked={isHoverActive}
-          onCheckedChange={handleSetIsHoverActive}
-          option="Hover"
-          description="Hover over a link to see if it is malicious"
-          type="switch"
-        />
-        <Option
-          checked={isUnclickableActive}
-          onCheckedChange={handleSetIsUnclickableActive}
-          option="Unclickable"
-          description="Automatically make malicious links unclickable"
-          type="switch"
-        />
-        <Separator className="h-0.5 bg-zinc-800" />
-        <Option
-          checked={isHideLinksActive}
-          onCheckedChange={handleSetIsHideLinksActive}
-          option="Hide Links"
-          description="Remove malicious links from your page"
-          type="switch"
-          disabled={false}
-          premium={true}
-          locked={true}
-        />
-        <Option
-          option="Scan Page"
-          description="Generate a list of malicious link from a page"
-          type="button"
-          buttonText="run"
-          disabled={false}
-          premium={true}
-          locked={true}
-        />
-        <Option
-          option="Flagged Links"
-          description="Review your flagged links"
-          type="button"
-          buttonText="view"
-          disabled={false}
-          premium={true}
-          locked={true}
-        />
+      <div className="mt-4" />
+      <div className="flex items-center justify-between px-2">
+        <h1 className="text-zinc-600 text-center text-sm font-medium tracking-wider cursor-default">
+          ma<span className="text-rose-900">l!nk</span>cious
+        </h1>
+        {isAuthenticated && (
+          <Button
+            onClick={handleSignOut}
+            className="text-rose-900 hover:text-rose-700 font-lexend text-xs font-light bg-transparent hover:bg-transparent cursor-pointer h-4"
+          >
+            Sign out
+            <LogOut className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     </div>
   );

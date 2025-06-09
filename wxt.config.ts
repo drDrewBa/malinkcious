@@ -13,8 +13,16 @@ export default defineConfig({
         "tabs",
         "storage",
         "activeTab",
-        "scripting"
+        "scripting",
+        "identity"
       ],
+      oauth2: {
+        client_id: "334481723630-b6nip23r9omib34inmogbvg0kck9nk2b.apps.googleusercontent.com",
+        scopes: [
+          "https://www.googleapis.com/auth/userinfo.email",
+          "https://www.googleapis.com/auth/userinfo.profile"
+        ]
+      }
     };
   },
 });
