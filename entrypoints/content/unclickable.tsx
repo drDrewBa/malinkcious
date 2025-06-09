@@ -1,5 +1,17 @@
+import React from 'react';
 import { checkMaliciousLink } from './api';
 import { PredictionResponse } from './types';
+import { createRoot } from 'react-dom/client';
+import StatusTooltip from './components/status-tooltip';
+import { sharedStyles } from './styles';
+
+interface UnclickableState {
+  container: HTMLDivElement | null;
+  reactRoot: ReturnType<typeof createRoot> | null;
+  processedLinks: number;
+  maliciousLinks: number;
+  isTooltipVisible: boolean;
+}
 
 // Function to update a single link based on model prediction
 const updateLink = async (link: HTMLAnchorElement, isActive: boolean) => {
@@ -10,7 +22,7 @@ const updateLink = async (link: HTMLAnchorElement, isActive: boolean) => {
     link.style.opacity = '';
     link.style.textDecoration = '';
     link.title = '';
-    return;
+    return false; // Return false to indicate link was not made unclickable
   }
 
   try {
@@ -27,6 +39,7 @@ const updateLink = async (link: HTMLAnchorElement, isActive: boolean) => {
       
       // Add a title to show why it's blocked
       link.title = `This link was blocked because it was classified as ${result.classification} (${(result.confidence * 100).toFixed(1)}% confidence)`;
+      return true; // Return true to indicate link was made unclickable
     } else {
       // Reset styles for benign links
       link.style.pointerEvents = '';
@@ -34,6 +47,7 @@ const updateLink = async (link: HTMLAnchorElement, isActive: boolean) => {
       link.style.opacity = '';
       link.style.textDecoration = '';
       link.title = '';
+      return false;
     }
   } catch (error) {
     console.error('Error checking link:', error);
@@ -42,29 +56,111 @@ const updateLink = async (link: HTMLAnchorElement, isActive: boolean) => {
     link.style.cursor = '';
     link.style.opacity = '';
     link.style.textDecoration = '';
+    return false;
   }
 };
 
 // Function to update all links on the page
-const updateAllLinks = async () => {
+const updateAllLinks = async (state: UnclickableState) => {
   const result = await chrome.storage.local.get(["isUnclickableActive"]);
   const allLinks = document.getElementsByTagName('a');
   
   console.log(`Checking ${allLinks.length} links, feature active: ${result.isUnclickableActive}`);
   
+  // Show processing status
+  updateStatusTooltip(state, true, 0);
+  
   // Process all links in parallel
-  const promises = Array.from(allLinks).map(link => updateLink(link, result.isUnclickableActive));
-  await Promise.all(promises);
+  const results = await Promise.all(
+    Array.from(allLinks).map(link => updateLink(link, result.isUnclickableActive))
+  );
+  
+  // Count malicious links
+  state.processedLinks = allLinks.length;
+  state.maliciousLinks = results.filter(Boolean).length;
+  
+  // Update status with results
+  updateStatusTooltip(state, false, state.maliciousLinks);
+};
+
+const updateStatusTooltip = (
+  state: UnclickableState,
+  isProcessing: boolean,
+  linksProcessed: number
+) => {
+  if (!state.isTooltipVisible) {
+    return;
+  }
+
+  if (!state.container) {
+    // Create container if it doesn't exist
+    state.container = document.createElement('div');
+    state.container.style.position = 'fixed';
+    state.container.style.top = '20px';
+    state.container.style.left = '20px';
+    state.container.style.zIndex = '999999';
+    document.body.appendChild(state.container);
+
+    // Create shadow root
+    const shadow = state.container.attachShadow({ mode: 'open' });
+    
+    // Add shared styles
+    const style = document.createElement('style');
+    style.textContent = sharedStyles;
+    
+    // Create container for React root
+    const container = document.createElement('div');
+    
+    shadow.appendChild(style);
+    shadow.appendChild(container);
+    
+    state.reactRoot = createRoot(container);
+  }
+
+  // Render or update the tooltip
+  state.reactRoot?.render(
+    React.createElement(StatusTooltip, {
+      isProcessing,
+      linksProcessed,
+      onClose: () => {
+        state.isTooltipVisible = false;
+        state.reactRoot?.unmount();
+        state.container?.remove();
+        state.container = null;
+      }
+    })
+  );
 };
 
 export const initUnclickable = () => {
+  const state: UnclickableState = {
+    container: null,
+    reactRoot: null,
+    processedLinks: 0,
+    maliciousLinks: 0,
+    isTooltipVisible: true
+  };
+
   let isActive = false;
 
   // Watch for storage changes
   const storageListener = async (changes: { [key: string]: chrome.storage.StorageChange }) => {
     if (changes.isUnclickableActive) {
       isActive = changes.isUnclickableActive.newValue;
-      await updateAllLinks();
+      if (isActive) {
+        state.isTooltipVisible = true;
+        await updateAllLinks(state);
+      } else {
+        // Reset all links to clickable state
+        await updateAllLinks(state);
+        // Then clean up tooltip
+        state.reactRoot?.unmount();
+        state.container?.remove();
+        state.container = null;
+        state.processedLinks = 0;
+        state.maliciousLinks = 0;
+        state.isTooltipVisible = false;
+      }
     }
   };
 
@@ -74,7 +170,7 @@ export const initUnclickable = () => {
   chrome.storage.local.get(["isUnclickableActive"]).then(result => {
     isActive = result.isUnclickableActive || false;
     if (isActive) {
-      updateAllLinks();
+      updateAllLinks(state);
     }
   });
 
@@ -96,8 +192,13 @@ export const initUnclickable = () => {
 
     if (newLinks.length > 0) {
       console.log(`New links detected in DOM: ${newLinks.length}`);
-      // Only check the new links
-      newLinks.forEach(link => updateLink(link, isActive));
+      // Process new links and update counts
+      Promise.all(newLinks.map(link => updateLink(link, isActive)))
+        .then(results => {
+          state.processedLinks += newLinks.length;
+          state.maliciousLinks += results.filter(Boolean).length;
+          updateStatusTooltip(state, false, state.maliciousLinks);
+        });
     }
   });
 
@@ -119,5 +220,8 @@ export const initUnclickable = () => {
       link.style.textDecoration = '';
       link.title = '';
     });
+    // Clean up tooltip
+    state.reactRoot?.unmount();
+    state.container?.remove();
   };
 }; 

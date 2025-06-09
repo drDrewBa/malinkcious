@@ -61,6 +61,7 @@ export const sharedStyles = `
     display: flex;
     flex-direction: column;
     gap: 6px;
+    padding-top: 2px
   }
 
   .title {
