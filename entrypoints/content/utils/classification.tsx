@@ -1,6 +1,6 @@
 import React from 'react';
 import { AlertCircle, CheckCircle2 } from "lucide-react";
-import { PredictionResponse, ClassificationDetails } from './types';
+import { PredictionResponse, ClassificationDetails } from '../types';
 
 export const getClassificationDetails = (classification: PredictionResponse["classification"]): ClassificationDetails => {
   switch (classification) {
@@ -14,19 +14,19 @@ export const getClassificationDetails = (classification: PredictionResponse["cla
       return {
         icon: <AlertCircle className="warning" />,
         title: "Potential Defacement",
-        description: "This site may be visually altered or tampered with.",
+        description: "This site may be visually altered or tampered with. Proceed with caution.",
       };
     case "phishing":
       return {
         icon: <AlertCircle className="danger" />,
         title: "Phishing Risk",
-        description: "This link may trick you into giving away sensitive info. Avoid it.",
+        description: "This link may trick you into giving away sensitive info. Proceed with caution.",
       };
     case "malware":
       return {
         icon: <AlertCircle className="danger" />,
         title: "Malware Threat",
-        description: "This site could install harmful software. Do not continue.",
+        description: "This site could install harmful software. Do not continue unless you are sure.",
       };
   }
 }; 

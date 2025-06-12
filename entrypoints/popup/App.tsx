@@ -127,13 +127,20 @@ function App() {
       </div>
       <div className="mt-4" />
       <div className="flex items-center justify-between px-2">
-        <h1 className="text-zinc-600 text-center text-sm font-medium tracking-wider cursor-default">
-          ma<span className="text-rose-900">l!nk</span>cious
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-zinc-600 text-center text-sm font-medium tracking-wider cursor-default">
+            ma<span className="text-rose-900">l!nk</span>cious
+          </h1>
+          {/* <div className="py-0 px-2 bg-zinc-800 rounded-xs">
+            <p className="text-[10px] font-lexend text-zinc-950 uppercase">
+              beta
+            </p>
+          </div> */}
+        </div>
         {isAuthenticated && (
           <Button
             onClick={handleSignOut}
-            className="text-rose-900 hover:text-rose-700 font-lexend text-xs font-light bg-transparent hover:bg-transparent cursor-pointer h-4"
+            className="text-rose-900 hover:text-rose-800 font-lexend text-xs font-light bg-transparent hover:bg-transparent cursor-pointer h-4 !px-0"
           >
             Sign out
             <LogOut className="h-4 w-4" />

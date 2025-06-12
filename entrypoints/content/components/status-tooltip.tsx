@@ -4,12 +4,14 @@ import { Loader, XCircle } from 'lucide-react';
 interface StatusTooltipProps {
   isProcessing: boolean;
   linksProcessed: number;
+  tooltipMessage: string;
   onClose?: () => void;
 }
 
 const StatusTooltip: React.FC<StatusTooltipProps> = ({ 
   isProcessing, 
   linksProcessed,
+  tooltipMessage,
   onClose 
 }) => {
   return (
@@ -24,7 +26,7 @@ const StatusTooltip: React.FC<StatusTooltipProps> = ({
         </div>
         <div className="classification">
           <p className="title">
-            {isProcessing ? 'Processing Links...' : `${linksProcessed} Links Made Unclickable`}
+            {isProcessing ? 'Processing Links...' : `${linksProcessed} ${tooltipMessage}`}
           </p>
           <p className="description">
             {isProcessing 
@@ -35,7 +37,7 @@ const StatusTooltip: React.FC<StatusTooltipProps> = ({
                   <span
                     className="text-zinc"
                     onClick={onClose}
-                    style={{ display: 'inline-block', marginLeft: '4px', cursor: 'pointer', textDecoration: 'underline', color: '#52525c' }}
+                    style={{ display: 'inline-block', marginLeft: '4px', cursor: 'pointer', textDecoration: 'underline' }}
                   >
                     Close
                   </span>

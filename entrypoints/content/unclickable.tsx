@@ -1,9 +1,10 @@
 import React from 'react';
-import { checkMaliciousLink } from './api';
-import { PredictionResponse } from './types';
 import { createRoot } from 'react-dom/client';
+import { checkMaliciousLink } from './api';
 import StatusTooltip from './components/status-tooltip';
 import { sharedStyles } from './styles';
+import { createLinkProcessor } from './utils/link-processor';
+import { createLinkObserver } from './utils/observer';
 
 interface UnclickableState {
   container: HTMLDivElement | null;
@@ -60,27 +61,68 @@ const updateLink = async (link: HTMLAnchorElement, isActive: boolean) => {
   }
 };
 
-// Function to update all links on the page
-const updateAllLinks = async (state: UnclickableState) => {
-  const result = await chrome.storage.local.get(["isUnclickableActive"]);
-  const allLinks = document.getElementsByTagName('a');
+const unclickableAction = (link: HTMLAnchorElement, isMalicious: boolean) => {
+  if (isMalicious) {
+    link.style.pointerEvents = 'none';
+    link.style.cursor = 'not-allowed';
+    link.style.opacity = '0.7';
+    link.style.textDecoration = 'line-through';
+  } else {
+    link.style.pointerEvents = '';
+    link.style.cursor = '';
+    link.style.opacity = '';
+    link.style.textDecoration = '';
+  }
+};
+
+export const initUnclickable = () => {
+  const { updateAllLinks, createInitialState } = createLinkProcessor({
+    featureName: 'made unclickable',
+    linkAction: unclickableAction,
+    tooltipMessage: 'Links Made Unclickable'
+  });
   
-  console.log(`Checking ${allLinks.length} links, feature active: ${result.isUnclickableActive}`);
-  
-  // Show processing status
-  updateStatusTooltip(state, true, 0);
-  
-  // Process all links in parallel
-  const results = await Promise.all(
-    Array.from(allLinks).map(link => updateLink(link, result.isUnclickableActive))
-  );
-  
-  // Count malicious links
-  state.processedLinks = allLinks.length;
-  state.maliciousLinks = results.filter(Boolean).length;
-  
-  // Update status with results
-  updateStatusTooltip(state, false, state.maliciousLinks);
+  const state = createInitialState();
+  let isActive = false;
+
+  // Watch for storage changes
+  const storageListener = async (changes: { [key: string]: chrome.storage.StorageChange }) => {
+    if (changes.isUnclickableActive) {
+      isActive = changes.isUnclickableActive.newValue;
+      if (isActive) {
+        state.isTooltipVisible = true;
+      }
+      await updateAllLinks(state, isActive);
+      
+      if (!isActive) {
+        state.processedLinks = 0;
+        state.maliciousLinks = 0;
+        state.isTooltipVisible = false;
+      }
+    }
+  };
+
+  chrome.storage.onChanged.addListener(storageListener);
+
+  // Check initial state
+  chrome.storage.local.get(["isUnclickableActive"]).then(result => {
+    isActive = result.isUnclickableActive || false;
+    if (isActive) {
+      updateAllLinks(state, isActive);
+    }
+  });
+
+  // Set up observer
+  const observer = createLinkObserver(state, isActive, updateLink, 'Links Made Unclickable');
+
+  // Return cleanup function
+  return () => {
+    chrome.storage.onChanged.removeListener(storageListener);
+    observer.disconnect();
+    updateAllLinks(state, false);
+    state.reactRoot?.unmount();
+    state.container?.remove();
+  };
 };
 
 const updateStatusTooltip = (
@@ -122,6 +164,7 @@ const updateStatusTooltip = (
     React.createElement(StatusTooltip, {
       isProcessing,
       linksProcessed,
+      tooltipMessage: 'Links Made Unclickable',
       onClose: () => {
         state.isTooltipVisible = false;
         state.reactRoot?.unmount();
@@ -130,98 +173,4 @@ const updateStatusTooltip = (
       }
     })
   );
-};
-
-export const initUnclickable = () => {
-  const state: UnclickableState = {
-    container: null,
-    reactRoot: null,
-    processedLinks: 0,
-    maliciousLinks: 0,
-    isTooltipVisible: true
-  };
-
-  let isActive = false;
-
-  // Watch for storage changes
-  const storageListener = async (changes: { [key: string]: chrome.storage.StorageChange }) => {
-    if (changes.isUnclickableActive) {
-      isActive = changes.isUnclickableActive.newValue;
-      if (isActive) {
-        state.isTooltipVisible = true;
-        await updateAllLinks(state);
-      } else {
-        // Reset all links to clickable state
-        await updateAllLinks(state);
-        // Then clean up tooltip
-        state.reactRoot?.unmount();
-        state.container?.remove();
-        state.container = null;
-        state.processedLinks = 0;
-        state.maliciousLinks = 0;
-        state.isTooltipVisible = false;
-      }
-    }
-  };
-
-  chrome.storage.onChanged.addListener(storageListener);
-
-  // Check initial state
-  chrome.storage.local.get(["isUnclickableActive"]).then(result => {
-    isActive = result.isUnclickableActive || false;
-    if (isActive) {
-      updateAllLinks(state);
-    }
-  });
-
-  // Watch for DOM changes to handle dynamically added links
-  const observer = new MutationObserver((mutations) => {
-    if (!isActive) return; // Don't process if feature is not active
-
-    const newLinks = mutations.reduce<HTMLAnchorElement[]>((acc, mutation) => {
-      const links = Array.from(mutation.addedNodes)
-        .filter((node): node is HTMLElement => node instanceof HTMLElement)
-        .flatMap(node => {
-          if (node.tagName === 'A') {
-            return [node as HTMLAnchorElement];
-          }
-          return Array.from(node.getElementsByTagName('a'));
-        });
-      return [...acc, ...links];
-    }, []);
-
-    if (newLinks.length > 0) {
-      console.log(`New links detected in DOM: ${newLinks.length}`);
-      // Process new links and update counts
-      Promise.all(newLinks.map(link => updateLink(link, isActive)))
-        .then(results => {
-          state.processedLinks += newLinks.length;
-          state.maliciousLinks += results.filter(Boolean).length;
-          updateStatusTooltip(state, false, state.maliciousLinks);
-        });
-    }
-  });
-
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true
-  });
-
-  // Return cleanup function
-  return () => {
-    chrome.storage.onChanged.removeListener(storageListener);
-    observer.disconnect();
-    // Reset all links to their original state
-    const allLinks = document.getElementsByTagName('a');
-    Array.from(allLinks).forEach(link => {
-      link.style.pointerEvents = '';
-      link.style.cursor = '';
-      link.style.opacity = '';
-      link.style.textDecoration = '';
-      link.title = '';
-    });
-    // Clean up tooltip
-    state.reactRoot?.unmount();
-    state.container?.remove();
-  };
 }; 

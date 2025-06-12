@@ -28,7 +28,7 @@ const Option = ({
   return (
     <div 
       className={`flex flex-col gap-2 rounded-sm border p-4 relative overflow-clip transition-all duration-300 cursor-pointer 
-        ${checked ? "bg-rose-950/10 border-rose-900" : "bg-zinc-900/10 border-zinc-700 hover:border-zinc-500 hover:bg-zinc-950" }`}
+        ${checked ? "bg-rose-950/10 border-rose-900 hover:bg-rose-950/20" : "bg-zinc-900/10 border-zinc-700 hover:border-zinc-500 hover:bg-zinc-950" }`}
       onClick={() => onCheckedChange?.(!checked)}
     >
       {Icon && <Icon className={`absolute -right-3.5 bottom-0 ${checked ? "text-rose-950" : "text-zinc-800"}`} height={iconSize} width={iconSize} />}

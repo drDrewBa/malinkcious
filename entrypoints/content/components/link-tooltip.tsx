@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Loader, X } from "lucide-react";
 import { PredictionResponse } from "../types";
 import { checkMaliciousLink } from "../api";
-import { getClassificationDetails } from "../utils";
+import { getClassificationDetails } from "../utils/classification";
 
 interface LinkTooltipProps {
   text: string;
